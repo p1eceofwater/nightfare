@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0d0f1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Night Fare — a calm pixel-art night taxi game. Ночной тариф — спокойная пиксельная игра про ночного таксиста.">
+  <title>Night Fare · Ночной тариф</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Главное меню -->
+    <section id="scr-menu" class="screen">
+      <div class="scene-wrap"><canvas id="menu-cv" width="256" height="160"></canvas></div>
+      <div id="menu-body" class="menu-body"></div>
+    </section>
+
+    <!-- Между сменами: гараж, навыки, город, коллекции -->
+    <section id="scr-hub" class="screen hidden">
+      <header id="hub-head" class="hub-head"></header>
+      <main id="hub-body" class="hub-body"></main>
+    </section>
+
+    <!-- Смена -->
+    <section id="scr-shift" class="screen hidden">
+      <div id="shift-top" class="shift-top"></div>
+      <div class="scene-wrap">
+        <canvas id="shift-cv" width="256" height="160"></canvas>
+        <div id="amb" class="amb"></div>
+        <div class="night-bar"><i id="night-prog"></i></div>
+      </div>
+      <div class="gauges">
+        <div class="g"><span>⛽</span><div class="bar"><i id="g-fuel"></i></div></div>
+        <div class="g"><span>⚡</span><div class="bar"><i id="g-energy"></i></div></div>
+        <div class="g"><span>🔧</span><div class="bar"><i id="g-cond"></i></div></div>
+        <div class="g-d" id="g-district"></div>
+      </div>
+      <div id="panel" class="panel"></div>
+      <nav id="actions" class="actions"></nav>
+    </section>
+
+    <div id="sheet" class="sheet hidden"><div id="sheet-card" class="sheet-card"></div></div>
+    <div id="toasts" class="toasts"></div>
+  </div>
+
+  <noscript>Включите JavaScript · Please enable JavaScript</noscript>
+
+  <!-- порядок важен: языки → данные → ядро → графика → звук → интерфейс -->
+  <script src="js/i18n.js"></script>
+  <script src="js/lang/ru.js"></script>
+  <script src="js/lang/en.js"></script>
+  <script src="js/lang/zh.js"></script>
+  <script src="js/lang/de.js"></script>
+  <script src="js/lang/fr.js"></script>
+  <script src="js/lang/es.js"></script>
+  <script src="js/lang/it.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/platform.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
