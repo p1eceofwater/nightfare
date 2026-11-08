@@ -6,7 +6,7 @@
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const T = (k, v) => esc(NF.t(k, v));
-  const VERSION = "1.2.1";
+  const VERSION = "1.2.2";
   NF.VERSION = VERSION;
 
   // ───────── настройки ─────────
@@ -46,7 +46,7 @@
     UI.screen = screen;
     for (const id of ["menu", "hub", "shift"]) $("#scr-" + id).classList.toggle("hidden", id !== screen);
     rerender();
-    window.scrollTo(0, 0);
+    for (const el of document.querySelectorAll(".hub-body, #scr-menu, .panel")) el.scrollTop = 0;
   }
   function save(force) { if (S) { NF.save(S); NF.platform.cloudSave(S, force); } }
 
@@ -176,7 +176,7 @@
       <nav class="tabs">${TABS.map(([id, ic]) => `<button class="tab ${UI.tab === id ? "on" : ""}" data-tab="${id}"><span>${ic}</span>${T("ui.tab_" + id)}${id === "coll" && S.lost.length ? '<em class="dot"></em>' : ""}</button>`).join("")}</nav>`;
     head.onclick = (e) => {
       const t = e.target.closest("[data-tab]");
-      if (t) { sfx("click"); UI.tab = t.dataset.tab; renderHub(); return; }
+      if (t) { sfx("click"); UI.tab = t.dataset.tab; renderHub(); $("#hub-body").scrollTop = 0; return; }
       const h = e.target.closest("[data-h]");
       if (!h) return;
       sfx("click");
@@ -185,7 +185,7 @@
       if (h.dataset.h === "sp") { UI.tab = "skills"; renderHub(); }
     };
     const body = $("#hub-body");
-    body.innerHTML = ({ shift: tabShift, garage: tabGarage, skills: tabSkills, city: tabCity, coll: tabColl, journal: tabJournal, fleet: tabFleet }[UI.tab] || tabShift)();
+    body.innerHTML = `<div class="hub-cols">${({ shift: tabShift, garage: tabGarage, skills: tabSkills, city: tabCity, coll: tabColl, journal: tabJournal, fleet: tabFleet }[UI.tab] || tabShift)()}</div>`;
     body.onclick = hubClick;
     paintCanvases(body);
   }
