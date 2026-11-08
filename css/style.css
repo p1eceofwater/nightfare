@@ -69,6 +69,7 @@ p { margin: 0.4rem 0; }
 .xp i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), #a78bfa); }
 .hh-stats { display: flex; gap: 0.9rem; align-items: center; font-size: 0.95rem; }
 .money { color: var(--amber); font-weight: 700; }
+.boost { background: #13324a; color: #8fd3ff; padding: 0.1rem 0.5rem; border-radius: 99px; font-size: 0.8rem; white-space: nowrap; }
 .sp { margin-left: auto; background: #3a2c10; color: var(--amber); padding: 0.1rem 0.5rem; border-radius: 99px; font-size: 0.8rem; cursor: pointer; animation: pulse 2s infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(242,198,109,.15); } }
 .tabs { display: flex; overflow-x: auto; gap: 0.2rem; margin: 0.45rem -0.8rem 0; padding: 0 0.6rem; scrollbar-width: none; }
@@ -260,3 +261,21 @@ textarea.code { width: 100%; min-height: 120px; background: #0b0d16; color: var(
 }
 /* низкое окно на телефоне: вид из машины чуть меньше, чтобы заказам хватало места */
 @media (max-height: 700px) and (max-width: 899px) { #scr-shift .scene-wrap { aspect-ratio: 16 / 8; } }
+/* узкие телефоны: верхняя полоса смены помещается целиком */
+@media (max-width: 400px) {
+  .shift-top { gap: 0.25rem; padding-left: 0.4rem; padding-right: 0.4rem; font-size: 0.86rem; }
+  .shift-top .icon { min-width: 32px; padding: 0 0.3rem; }
+  .shift-top .boost { padding: 0.05rem 0.3rem; }
+  #s-money { white-space: nowrap; }
+}
+@media (max-width: 340px) { #s-rating { display: none; } }
+
+/* серия ночей */
+.streak-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; margin: 0.5rem 0 0.7rem; }
+.sd { background: var(--card2); border: 2px solid var(--line); border-radius: 10px; text-align: center; padding: 0.25rem 0 0.3rem; line-height: 1.2; }
+.sd small { display: block; color: var(--muted); font-size: 0.7rem; }
+.sd b { font-size: 0.95rem; color: var(--muted); }
+.sd.got { border-color: #3f6b43; background: #17261a; } .sd.got b { color: #8fdc8f; }
+.sd.now { border-color: var(--amber); box-shadow: 0 0 0 2px #f2c66d33; } .sd.now b { color: var(--amber); }
+.adrow .btn { font-size: 0.9rem; padding: 0.6rem 0.5rem; }
+.adrow .btn:only-child { grid-column: 1 / -1; }

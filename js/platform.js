@@ -37,6 +37,32 @@
   }
   P.hasAds = () => !!(P.ysdk || P.vk);
 
+  // ── приглашения друзей (ВКонтакте) ──
+  // По правилам ВК (п. 2.6.2) за саму отправку приглашений ничего не даём.
+  // Подарок получает новый игрок, который пришёл по приглашению друга.
+  P.canInvite = () => !!P.vk;
+  P.invite = function () {
+    if (!P.vk) return Promise.resolve(false);
+    return P.vk.send("VKWebAppShowInviteBox").then(() => true).catch(() => false);
+  };
+  // истории ВК работают только в мобильных приложениях ВКонтакте
+  P.canStory = () => !!P.vk && /^mobile_(android|iphone)/.test(QS.get("vk_platform") || "");
+  P.story = function (dataUrl) {
+    if (!P.vk) return Promise.resolve(false);
+    const app = QS.get("vk_app_id") || "54883380";
+    return P.vk.send("VKWebAppShowStoryBox", {
+      background_type: "image", blob: dataUrl,
+      attachment: { text: "go_to", type: "url", url: "https://vk.com/app" + app },
+    }).then(() => true).catch(() => false); // закрыл редактор без публикации → ошибка
+  };
+  // впервые открыл игру из приглашения/уведомления или по ссылке vk.com/app…#invite
+  P.cameByInvite = function () {
+    if (!P.isVK()) return false;
+    if (/invite/i.test(location.hash)) return true;
+    const ref = QS.get("vk_ref") || "";
+    return QS.get("vk_is_app_user") === "0" && /^(notifications|request)/.test(ref);
+  };
+
   P.init = async function () {
     if (P.isVK()) return initVK();
     if (!P.isYandex()) return false;

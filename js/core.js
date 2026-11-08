@@ -74,7 +74,7 @@
       stats: { rides: 0, km: 0, earned: 0, tips: 0, five: 0, returned: 0, stormRides: 0, dawns: 0, zenNights: 0, events: 0, bestShift: 0, tow: 0 },
       ach: {}, fleet: { cars: 0, garage: 0, earned: 0 }, legend: 0, dayBest: {}, daily: null,
       shift: null, ride: null, pending: null, lastSummary: null,
-      hour: 22, minute: 0, season: "autumn", winter: false,
+      hour: 22, minute: 0, season: "autumn", winter: false, boostUntil: 0, streak: null, adFree: null, storyDay: "",
     };
   };
   function migrate(o) {
@@ -109,6 +109,7 @@
   const car = (s) => NF.CAR[s.car];
   NF.xpNeed = (L) => Math.round(120 * Math.pow(1.12, L - 1));
   const moneyScale = (s) => 1 + (s.level - 1) * 0.04 + (NF.D[s.district].mult - 1) * 0.5;
+  NF.moneyScale = moneyScale;
   const legendMul = (s) => 1 + s.legend * 0.1;
   function surge(s) {
     let m = 1;
@@ -340,6 +341,11 @@
     return { stars: clamp(Math.round(q), 1, 5), hit };
   }
 
+  // ×2 чаевых по времени (подарок от друга); boostUntil — отметка времени в мс
+  NF.tipBoost = (s) => (s.boostUntil && Date.now() < s.boostUntil && !(s.shift && s.shift.daily) ? 2 : 1);
+  NF.boostLeft = (s) => Math.max(0, Math.ceil(((s.boostUntil || 0) - Date.now()) / 60000));
+  NF.giveBoost = (s, min) => { s.boostUntil = Math.max(Date.now(), s.boostUntil || 0) + min * 60000; };
+
   function finishRide(s) {
     const r = s.ride, sh = s.shift, a = NF.A[r.arch] || { tip: 0.1 };
     const { stars, hit } = rideStars(s, r);
@@ -347,7 +353,7 @@
     const pay = Math.max(0, Math.round(fare + r.mf * fare));
     const tipRate = a.tip + s.skills.charm * 0.01 + up(s, "snacks") * 0.012 + (s.flags.cat ? 0.03 : 0);
     const tm = stars >= 5 ? 1.5 : stars === 4 ? 1 : stars === 3 ? 0.3 : 0;
-    const tip = Math.max(0, Math.round(fare * tipRate * tm + r.tip * fare));
+    const tip = Math.max(0, Math.round((fare * tipRate * tm + r.tip * fare) * NF.tipBoost(s)));
     s.money += pay + tip;
     s.stats.earned += pay + tip; s.stats.tips += tip;
     sh.earned += pay; sh.tips += tip; sh.rides++; sh.km += r.km; sh.starSum += stars;
@@ -377,7 +383,7 @@
     const cost = Math.round(40 * moneyScale(s));
     s.money = Math.max(0, s.money - cost);
     s.fuel = 25; s.stats.tow++;
-    if (s.shift) s.shift.busy = { kind: "tow", t: 30, total: 30 };
+    if (s.shift) { s.shift.busy = { kind: "tow", t: 30, total: 30 }; s.shift.towCost = (s.shift.towCost || 0) + cost; }
     emit("tow", cost);
   }
 
@@ -625,7 +631,7 @@
       net: s.money - sh.startMoney, rides: sh.rides, km: Math.round(sh.km * 10) / 10,
       avg: sh.rides ? Math.round((sh.starSum / sh.rides) * 100) / 100 : 0, five: sh.five, xp: sh.xp, levels: sh.levels,
       rating: s.rating, ratingDelta: s.rating - sh.startRating, weather: sh.weather, early: !!early, reason: reason || null,
-      daily: sh.daily, date: sh.date, call: ri(s, 0, 999), events: sh.events, district: s.district,
+      daily: sh.daily, date: sh.date, call: ri(s, 0, 999), events: sh.events, district: s.district, towCost: sh.towCost || 0,
     };
     journal(s, { k: "shift", v: total });
     s.shift = null; s.ride = null; s.energy = 100; s.minute = 0; s.hour = 22;
@@ -660,6 +666,33 @@
     s.car = id; s.carIdx = NF.CARS.findIndex((c) => c.id === id);
     return true;
   };
+  // ───────── серия ночей: награда за каждый день подряд ─────────
+  NF.STREAK = [1, 1.5, 2, 2.5, 3, 4, 6];
+  NF.streakInfo = function (s) {
+    const st = s.streak || { last: "", n: 0 };
+    const t = NF.today(), y = NF.today(new Date(Date.now() - 864e5));
+    const claimed = st.last === t;
+    const n = claimed ? st.n : st.last === y ? st.n + 1 : 1; // номер дня, который забираем (или забрали) сегодня
+    const day = ((n - 1) % 7) + 1;
+    return { n, day, claimed, money: Math.round(25 * NF.STREAK[day - 1] * moneyScale(s)), boost: day === 7 };
+  };
+  NF.claimStreak = function (s) {
+    const i = NF.streakInfo(s);
+    if (i.claimed) return null;
+    s.streak = { last: NF.today(), n: i.n };
+    s.money += i.money; s.stats.earned += i.money;
+    if (i.boost) NF.giveBoost(s, 30);
+    return i;
+  };
+  // бесплатная заправка/ремонт за рекламу — по разу за ночь
+  NF.adFreeLeft = (s, k) => !s.adFree || s.adFree.n !== s.nights || !s.adFree[k];
+  NF.useAdFree = function (s, k) {
+    if (!s.adFree || s.adFree.n !== s.nights) s.adFree = { n: s.nights };
+    s.adFree[k] = 1;
+    if (k === "fuel") s.fuel = 100;
+    if (k === "repair") s.cond = 100;
+  };
+
   NF.repair = function (s) {
     const c = NF.repairCost(s);
     if (s.cond >= 100 || s.money < c) return false;

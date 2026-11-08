@@ -1,6 +1,6 @@
 /* Офлайн-режим: игра сохраняется в телефоне и работает без интернета.
    ВАЖНО: при каждом обновлении игры увеличь номер версии ниже — иначе игроки увидят старую версию. */
-const VERSION = "nightfare-v1.2.2";
+const VERSION = "nightfare-v1.4.0";
 const FILES = [
   "./", "./index.html", "./css/style.css", "./manifest.webmanifest",
   "./js/i18n.js", "./js/content.js", "./js/core.js", "./js/art.js", "./js/audio.js", "./js/platform.js", "./js/ui.js",

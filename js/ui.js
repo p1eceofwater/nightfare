@@ -6,7 +6,7 @@
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const T = (k, v) => esc(NF.t(k, v));
-  const VERSION = "1.2.2";
+  const VERSION = "1.4.0";
   NF.VERSION = VERSION;
 
   // ───────── настройки ─────────
@@ -138,12 +138,28 @@
       if (a === "about") openAbout();
     };
   }
+  // подарок новичку, который пришёл по приглашению друга: ×2 чаевых на 30 минут
+  function friendGift() {
+    if (!UI.friendGift || !S || S.nights > 0 || S.flags.friendGift) return false;
+    let used = false; try { used = localStorage.getItem("nf_gift") === "1"; } catch (e) {}
+    if (used) return false;
+    S.flags.friendGift = 1; NF.giveBoost(S, 30); save(true);
+    try { localStorage.setItem("nf_gift", "1"); } catch (e) {}
+    UI.friendGift = false;
+    return true;
+  }
+  function giftSheet(after) {
+    sheet(`<div class="center"><h2>🎁 ${T("ui.giftTitle")}</h2><p>${T("ui.giftText")}</p><button class="btn big primary" data-x="ok">${T("ui.letsgo")}</button></div>`, { dismiss: false }).onclick = (e) => {
+      if (e.target.closest("[data-x]")) { closeSheet(); sfx("coin"); after && after(); }
+    };
+  }
   function newGame() {
     S = NF.newState(NF.lang);
     save();
+    const gifted = friendGift();
     const intro = NF.L("intro") || [];
     sheet(`<div class="intro"><div class="logo small">${T("meta.title")} <span class="age">12+</span></div>${intro.map((p) => `<p>${esc(p)}</p>`).join("")}<button class="btn big primary" data-x="go">${T("ui.letsgo")}</button></div>`, { dismiss: false }).onclick = (e) => {
-      if (e.target.closest("[data-x]")) { closeSheet(); UI.tab = "shift"; show("hub"); }
+      if (e.target.closest("[data-x]")) { closeSheet(); UI.tab = "shift"; show("hub"); if (gifted) giftSheet(); }
     };
   }
   function startDaily() {
@@ -172,7 +188,7 @@
         <button class="icon" data-h="settings" aria-label="settings">⚙</button>
       </div>
       <div class="xp"><i style="width:${S.level >= NF.LEVEL_CAP ? 100 : Math.round((S.xp / need) * 100)}%"></i></div>
-      <div class="hh-stats"><span class="money">${NF.money(S.money)}</span><span>★ ${NF.num(S.rating, 2)}</span>${S.sp ? `<span class="sp" data-h="sp">+${S.sp} ${T("ui.sp")}</span>` : ""}</div>
+      <div class="hh-stats"><span class="money">${NF.money(S.money)}</span><span>★ ${NF.num(S.rating, 2)}</span>${NF.tipBoost(S) > 1 ? `<span class="boost">🎁 ${T("ui.boostChip", { n: NF.boostLeft(S) })}</span>` : ""}${S.sp ? `<span class="sp" data-h="sp">+${S.sp} ${T("ui.sp")}</span>` : ""}</div>
       <nav class="tabs">${TABS.map(([id, ic]) => `<button class="tab ${UI.tab === id ? "on" : ""}" data-tab="${id}"><span>${ic}</span>${T("ui.tab_" + id)}${id === "coll" && S.lost.length ? '<em class="dot"></em>' : ""}</button>`).join("")}</nav>`;
     head.onclick = (e) => {
       const t = e.target.closest("[data-tab]");
@@ -197,7 +213,19 @@
     UI.startDistrict = start;
     const news = NF.L("news") || [];
     const karmaKey = S.karma >= 30 ? "k_saint" : S.karma >= 10 ? "k_good" : S.karma <= -25 ? "k_dark" : S.karma <= -8 ? "k_shady" : "k_plain";
+    const sk = NF.streakInfo(S);
+    const streak = `<div class="card streak">
+        <h3>🔥 ${T("ui.streakTitle")}${sk.n > 1 || sk.claimed ? ` <small class="muted">· ${T("ui.streakDays", { n: sk.n })}</small>` : ""}</h3>
+        <div class="streak-row">${NF.STREAK.map((m, i) => {
+          const d = i + 1, cls = d < sk.day || (d === sk.day && sk.claimed) ? "got" : d === sk.day ? "now" : "";
+          return `<div class="sd ${cls}"><small>${d}</small><b>${d === 7 ? "🎁" : cls === "got" ? "✓" : "$"}</b></div>`;
+        }).join("")}</div>
+        ${sk.claimed ? `<p class="muted small">${T("ui.streakDone", { n: (sk.day % 7) + 1 })}</p>`
+          : `<button class="btn primary" data-act="streak">🔥 ${T("ui.streakClaim", { m: NF.money(sk.money) })}${sk.boost ? " + 🎁×2" : ""}</button>`}
+        <p class="muted small">${T("ui.streakHint")}</p>
+      </div>`;
     return `
+      ${sk.claimed ? "" : streak}
       <div class="card hero">
         <canvas class="pc wide" width="256" height="128" data-d="${start}" data-w="clear" data-m="30"></canvas>
         <div class="hero-in">
@@ -208,6 +236,12 @@
           ${NF.canDaily(S) ? `<button class="btn" data-act="daily">🌃 ${T("ui.dailyNight")}<small>${T("ui.dailyHint")}</small></button>` : `<p class="muted center">🌃 ${T("ui.dailyDone")} ${NF.money(S.dayBest[NF.today()] || 0)}</p>`}
         </div>
       </div>
+      ${NF.platform.canInvite() ? `<div class="card invite">
+        <h3>👥 ${T("ui.inviteTitle")}</h3>
+        <p class="muted">${T("ui.inviteHint")}</p>
+        <button class="btn" data-act="invite">✉ ${T("ui.inviteBtn")}</button>
+      </div>` : ""}
+      ${sk.claimed ? streak : ""}
       <div class="card">
         <h3>📋 ${T("ui.dailyTasks")}</h3>
         ${d.tasks.map((t) => `<div class="task ${t.done ? "done" : ""}"><span>${t.done ? "✅" : "▫"} ${T("daily." + t.t, { n: t.t === "earn" ? NF.money(t.goal) : t.goal })}</span><b>${t.t === "earn" ? NF.money(t.prog) : NF.num(t.prog, t.t === "km" ? 1 : 0)}/${t.t === "earn" ? NF.money(t.goal) : t.goal}</b></div>`).join("")}
@@ -249,11 +283,19 @@
         <h2>${T("car." + c.id + ".n")}</h2><p class="muted">${T("car." + c.id + ".d")}</p>
         <div class="gauge"><span>🔧 ${T("ui.cond")}</span>${bar(S.cond, S.cond < 40 ? "warn" : "")}<button class="btn sm" data-act="repair" ${S.cond >= 100 || S.money < NF.repairCost(S) ? "disabled" : ""}>${S.cond >= 100 ? "✓" : NF.money(NF.repairCost(S))}</button></div>
         <div class="gauge"><span>⛽ ${T("ui.fuel")}</span>${bar(S.fuel, S.fuel < 25 ? "warn" : "")}<button class="btn sm" data-act="refuel" ${S.fuel >= 100 || S.money < NF.refuelCost(S) ? "disabled" : ""}>${S.fuel >= 100 ? "✓" : NF.money(NF.refuelCost(S))}</button></div>
+        ${adRow()}
       </div>
       <div class="card"><h3>🛠 ${T("ui.upgrades")}</h3>${ups}</div>
       <div class="card"><h3>🚗 ${T("ui.showroom")}</h3><p class="muted small">${T("ui.showroomHint")}</p>${cars}</div>`;
   }
 
+  // бесплатные заправка и ремонт за рекламу — по разу за ночь
+  function adRow() {
+    if (!NF.platform.hasAds()) return "";
+    const f = S.fuel < 100 && NF.adFreeLeft(S, "fuel"), r = S.cond < 100 && NF.adFreeLeft(S, "repair");
+    if (!f && !r) return "";
+    return `<div class="row2 adrow">${f ? `<button class="btn" data-act="adfuel">📺 ⛽ ${T("ui.adFree")}</button>` : ""}${r ? `<button class="btn" data-act="adrepair">📺 🔧 ${T("ui.adFree")}</button>` : ""}</div>`;
+  }
   function tabSkills() {
     return `<div class="card"><h3>⭐ ${T("ui.skills")}</h3><p class="muted">${T("ui.skillsHint")}</p><div class="sp-big">${S.sp} ${T("ui.sp")}</div>
       ${NF.SKILLS.map((id) => {
@@ -372,6 +414,18 @@
     if (ds.coll) { UI.coll = ds.coll; sfx("click"); renderHub(); return; }
     if (ds.act === "start") { beginShift(false); return; }
     if (ds.act === "daily") { startDaily(); return; }
+    if (ds.act === "streak") {
+      const r = NF.claimStreak(S);
+      if (r) { sfx("coin"); vib(20); toast(`🔥 ${T("ui.streakGot", { m: NF.money(r.money) })}${r.boost ? " · 🎁 " + T("ui.boostChip", { n: 30 }) : ""}`, "gold"); save(true); renderHub(); }
+      return;
+    }
+    if (ds.act === "adfuel" || ds.act === "adrepair") {
+      const k = ds.act === "adfuel" ? "fuel" : "repair";
+      b.disabled = true;
+      NF.platform.rewarded(() => { NF.useAdFree(S, k); save(true); toast(k === "fuel" ? "⛽ " + T("ui.adFueled") : "🔧 " + T("ui.adRepaired"), "gold"); }, () => renderHub());
+      return;
+    }
+    if (ds.act === "invite") { sfx("click"); NF.platform.invite().then((ok) => ok && toast("✉ " + T("ui.inviteSent"))); return; }
     if (ds.act === "repair") ok = NF.repair(S);
     if (ds.act === "refuel") ok = NF.refuelHome(S);
     if (ds.act === "fleetcar") ok = NF.buyFleetCar(S);
@@ -557,7 +611,7 @@
     const set = (id, v) => { const el = $("#" + id); if (el && el.innerHTML !== v) el.innerHTML = v; };
     set("s-clock", NF.clock(S.minute));
     set("s-weather", WICON[sh.weather] + (NF.surge(S) > 1.01 ? ` <small class="surge">×${NF.num(NF.surge(S), 2)}</small>` : ""));
-    set("s-money", NF.money(S.money));
+    set("s-money", NF.money(S.money) + (NF.tipBoost(S) > 1 ? ` <small class="boost" title="${NF.boostLeft(S)} min">🎁×2</small>` : ""));
     set("s-rating", "★" + NF.num(S.rating, 2));
     set("s-speed", UI.speed + "×");
     set("s-radio", SET.radio ? "📻" : "🔇");
@@ -683,13 +737,28 @@
       ${row(T("ui.rating"), NF.num(sum.rating, 2) + ` <small class="${sum.ratingDelta >= 0 ? "pos" : "neg"}">${sum.ratingDelta >= 0 ? "▲" : "▼"}${NF.num(Math.abs(sum.ratingDelta), 2)}</small>`)}
       ${row("XP", "+" + NF.num(sum.xp) + (sum.levels ? ` · ⬆${sum.levels}` : ""))}
       ${call ? `<div class="call"><b>📞 ${T("ui.callHome")}</b><p>${esc(call)}</p></div>` : ""}
-      ${NF.platform.hasAds() ? (sum.tips > 0 ? `<button class="btn" data-x="reward">📺 ${T("ui.adDouble", { m: NF.money(sum.tips) })}</button>` : "") + `<button class="btn primary" data-x="hub">${T("ui.toGarage")}</button>`
+      ${NF.platform.hasAds() ? (sum.tips > 0 ? `<button class="btn" data-x="reward">📺 ${T("ui.adDouble", { m: NF.money(sum.tips) })}</button>` : "")
+          + (sum.towCost > 0 ? `<button class="btn" data-x="tow">📺 ${T("ui.towRefund", { m: NF.money(sum.towCost) })}</button>` : "")
+          + (NF.platform.canStory() ? `<button class="btn" data-x="story">📸 ${S.storyDay !== NF.today() ? T("ui.storyBtn") : T("ui.storyBtnNoBonus")}</button>` : "")
+          + `<button class="btn primary" data-x="hub">${T("ui.toGarage")}</button>`
         : `<div class="row2"><button class="btn" data-x="share">📤 ${T("ui.share")}</button><button class="btn primary" data-x="hub">${T("ui.toGarage")}</button></div>`}
     </div>`, { kind: "summary", dismiss: false }).onclick = (e) => {
       const x = e.target.closest("[data-x]");
       if (!x) return;
       if (x.dataset.x === "share") shareCard(sum);
-      else if (x.dataset.x === "reward") {
+      else if (x.dataset.x === "tow") {
+        x.disabled = true;
+        NF.platform.rewarded(() => { S.money += sum.towCost; save(true); toast(`🚛 +${NF.money(sum.towCost)}`, "gold"); sfx("coin"); }, () => x.remove());
+      } else if (x.dataset.x === "story") {
+        x.disabled = true;
+        const bonus = S.storyDay !== NF.today();
+        NF.platform.story(storyImage(sum)).then((ok) => {
+          x.disabled = false;
+          if (!ok) return;
+          if (bonus) { S.storyDay = NF.today(); NF.giveBoost(S, 15); save(true); sfx("coin"); toast(`📸 ${T("ui.storyGot")}`, "gold"); x.innerHTML = "📸 " + T("ui.storyBtnNoBonus"); }
+          else toast("📸 " + T("ui.storyThanks"));
+        });
+      } else if (x.dataset.x === "reward") {
         x.disabled = true;
         NF.platform.rewarded(() => { S.money += sum.tips; S.stats.earned += sum.tips; save(true); toast(`📺 +${NF.money(sum.tips)}`, "gold"); sfx("coin"); }, () => x.remove());
       } else { closeSheet(); UI.tab = "shift"; save(true); show("hub"); }
@@ -697,7 +766,41 @@
   }
 
   // карточка смены картинкой — поделиться с друзьями
+  // вертикальная картинка 1080×1920 для истории ВКонтакте
+  function storyImage(sum) {
+    const card = drawCard(sum);
+    const c = document.createElement("canvas");
+    c.width = 1080; c.height = 1920;
+    const ctx = c.getContext("2d");
+    const g = ctx.createLinearGradient(0, 0, 0, 1920);
+    g.addColorStop(0, "#1b2347"); g.addColorStop(0.55, "#0e1222"); g.addColorStop(1, "#07080f");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1920);
+    // звёзды
+    let seed = sum.night * 7919 + 13;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    ctx.fillStyle = "#ffffff";
+    for (let i = 0; i < 90; i++) { ctx.globalAlpha = 0.25 + rnd() * 0.6; const r = rnd() < 0.85 ? 2 : 4; ctx.fillRect(Math.floor(rnd() * 1080), Math.floor(rnd() * 330), r, r); }
+    ctx.globalAlpha = 1;
+    ctx.drawImage(card, 54, 250, 972, 1296);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#f2c66d"; ctx.font = "bold 48px system-ui, sans-serif";
+    ctx.fillText("🚕 " + NF.t("ui.storyCta") + " 🌙", 540, 1690);
+    return c.toDataURL("image/jpeg", 0.9);
+  }
   function shareCard(sum) {
+    drawCard(sum).toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], "night-fare.png", { type: "image/png" });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: NF.t("meta.title") }); return; }
+      } catch (e) { if (e && e.name === "AbortError") return; }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "night-fare-" + sum.night + ".png";
+      document.body.appendChild(a); a.click(); a.remove();
+      toast("📤 " + NF.t("ui.saved"));
+    }, "image/png");
+  }
+  function drawCard(sum) {
     const c = document.createElement("canvas");
     c.width = 720; c.height = 960;
     const ctx = c.getContext("2d");
@@ -722,17 +825,7 @@
     });
     ctx.textAlign = "center"; ctx.fillStyle = "#5f6790"; ctx.font = "22px system-ui, sans-serif";
     ctx.fillText(NF.t("meta.sub"), 360, 930);
-    c.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], "night-fare.png", { type: "image/png" });
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: NF.t("meta.title") }); return; }
-      } catch (e) { if (e && e.name === "AbortError") return; }
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = "night-fare-" + sum.night + ".png";
-      document.body.appendChild(a); a.click(); a.remove();
-      toast("📤 " + NF.t("ui.saved"));
-    }, "image/png");
+    return c;
   }
 
   // ───────── пауза, настройки, язык, об игре ─────────
@@ -918,6 +1011,10 @@
         if (cloud && typeof cloud.money === "number" && (!S || (cloud.nights || 0) > (S.nights || 0))) {
           const st = NF.importCode(NF.exportCode(cloud));
           if (st) { S = st; NF.save(S); rerender(); }
+        }
+        if (NF.platform.cameByInvite() && (!S || S.nights === 0)) {
+          UI.friendGift = true;
+          if (S && friendGift()) { rerender(); giftSheet(); }
         }
       } else if (!SET.lang) openLang(false);
       NF.platform.ready();
